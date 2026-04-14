@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Start Page</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fuse.js@6.6.2"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+        .hidden { display: none; }
+        
+        /* Removed mark styling */
+
+        .category-column {
+            flex-shrink: 0;
+            width: calc(16.666% - 1.5rem); 
+            min-width: 0;
+        }
+
+        @media (max-width: 1280px) { .category-column { width: calc(25% - 1.5rem); } }
+        @media (max-width: 1024px) { .category-column { width: calc(33.333% - 1.5rem); } }
+        @media (max-width: 640px) { .category-column { width: calc(50% - 1rem); } }
+    </style>
+</head>
+<body class="p-4 sm:p-8 max-w-[1920px] mx-auto">
+
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4 shrink-0">
+        <h1 class="text-3xl font-bold text-gray-800">🔗 Start Page</h1>
+        <button onclick="openAddModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow transition w-full sm:w-auto">
+            + Add New Link
+        </button>
+    </div>
+
+    <div class="relative mb-6 shrink-0">
+        <input type="text" id="searchInput" placeholder="Search titles, categories, or URLs..." autofocus
+               class="w-full p-4 pl-12 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm text-lg">
+        <svg class="w-6 h-6 absolute left-4 top-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+    </div>
+
+    <div id="resultsContainer" style="display: flex; flex-direction: row; flex-wrap: nowrap; overflow-x: auto; gap: 1.5rem; padding-bottom: 1rem; width: 100%; box-sizing: border-box;">
+        <p class="text-center text-gray-500 w-full">Loading...</p>
+    </div>
+
+    <!-- Modal -->
+    <div id="modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+        <div class="bg-white p-6 rounded-xl shadow-xl w-full max-w-md mx-4">
+            <h2 id="modalTitle" class="text-xl font-bold mb-4">Add New Link</h2>
+            <form id="linkForm" class="space-y-4">
+                <input type="hidden" id="linkId">
+                <input type="text" id="newTitle" placeholder="Title" required class="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none">
+                <input type="text" id="newCategory" placeholder="Category" required class="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none">
+                <input type="url" id="newUrl" placeholder="URL (https://...)" required class="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none">
+                <input type="url" id="newIcon" placeholder="Icon URL (e.g., https://site.com/favicon.ico)" class="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none">
+                <div class="flex justify-end space-x-2">
+                    <button type="button" onclick="closeModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let allLinks = [];
+        let fuse;
+        let currentResults = [];
+
+        async function fetchLinks() {
+            try {
+                const res = await fetch('/api/links');
+                if (!res.ok) throw new Error('Failed to fetch links');
+                allLinks = await res.json();
+                console.log("Fetched links:", allLinks);
+                
+                // Removed includeMatches: true
+                fuse = new Fuse(allLinks, {
+                    keys: ['title', 'category', 'url'], 
+                    threshold: 0.3,
+                    includeScore: true,
+                    // includeMatches: true,  <-- REMOVED
+                    ignoreLocation: true,
+                    minMatchCharLength: 1
+                });
+                
+                currentResults = allLinks;
+                renderLinks(currentResults);
+            } catch (error) {
+                console.error("Error fetching links:", error);
+                document.getElementById('resultsContainer').innerHTML = `<p class="text-center text-red-500 w-full">Error loading links: ${error.message}</p>`;
+            }
+        }
+
+        // Removed applyHighlight function entirely
+
+        function renderLinks(links) {
+            currentResults = links;
+            const container = document.getElementById('resultsContainer');
+            container.innerHTML = '';
+
+            if (links.length === 0) {
+                container.innerHTML = '<p class="text-center text-gray-500 w-full">No links found.</p>';
+                return;
+            }
+
+            const grouped = {};
+            
+            // Check if we have fuse results (with .item) or raw links
+            const isSearchResult = links.length > 0 && links[0].hasOwnProperty('item');
+
+            links.forEach((entry) => {
+                let link = isSearchResult ? entry.item : entry;
+                
+                if (!grouped[link.category]) grouped[link.category] = [];
+                grouped[link.category].push(link);
+            });
+
+            for (const [category, catLinks] of Object.entries(grouped)) {
+                // Sort alphabetically by title
+                catLinks.sort((a, b) => a.title.localeCompare(b.title));
+
+                const column = document.createElement('div');
+                column.className = 'category-column flex flex-col bg-gray-50 rounded-xl border border-gray-200 p-4 box-border';
+                
+                let html = `<h2 class="text-lg font-bold text-gray-700 mb-3 pb-2 border-b border-gray-200 truncate" title="${category}">${category} <span class="text-xs font-normal text-gray-500">(${catLinks.length})</span></h2><div class="flex flex-col gap-3">`;
+                
+                catLinks.forEach(link => {
+                    // No highlighting needed, just use raw text
+                    const title = link.title;
+                    const url = link.url;
+                    
+                    let iconHtml = '';
+                    if (link.icon) {
+                        iconHtml = `<img src="${link.icon}" alt="" class="w-5 h-5 mr-2 rounded-sm object-contain flex-shrink-0">`;
+                    }
+
+                    html += `
+                        <div class="relative group bg-white rounded-lg border border-gray-200 hover:shadow-md transition p-3">
+                            <a href="${link.url}" target="_blank" class="flex items-start min-w-0 pr-8">
+                                ${iconHtml}
+                                <div class="flex-1 min-w-0">
+                                    <h3 class="font-medium text-blue-600 group-hover:underline text-sm leading-tight mb-1 break-words" title="${title.replace(/<[^>]*>/g, '')}">${title}</h3>
+                                    <p class="text-xs text-gray-500 truncate" title="${url}">${url}</p>
+                                </div>
+                            </a>
+
+                            <div class="absolute right-2 top-2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition duration-200 z-20">
+                                <button onclick="openEditModal('${link.id}')" class="text-yellow-600 hover:text-yellow-800 hover:bg-yellow-100 p-1 rounded text-xs transition" title="Edit">✎</button>
+                                <button onclick="deleteLink('${link.id}')" class="text-red-500 hover:text-red-700 hover:bg-red-100 p-1 rounded text-xs transition" title="Delete">✕</button>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                html += '</div>';
+                column.innerHTML = html;
+                container.appendChild(column);
+            }
+        }
+
+        const searchInput = document.getElementById('searchInput');
+
+        searchInput.addEventListener('input', (e) => {
+            const query = e.target.value.trim();
+            if (!query) {
+                currentResults = allLinks;
+                renderLinks(currentResults);
+                return;
+            }
+            // Get results (still returns objects, but we only use .item now)
+            const results = fuse.search(query);
+            currentResults = results.map(r => r.item);
+            renderLinks(currentResults);
+        });
+
+        searchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                if (currentResults.length > 0) {
+                    window.open(currentResults[0].url, '_blank');
+                }
+            }
+        });
+
+        // Modal Functions
+        function openAddModal() {
+            document.getElementById('modalTitle').innerText = 'Add New Link';
+            document.getElementById('linkId').value = '';
+            document.getElementById('newTitle').value = '';
+            document.getElementById('newCategory').value = '';
+            document.getElementById('newUrl').value = '';
+            document.getElementById('newIcon').value = '';
+            document.getElementById('modal').classList.remove('hidden');
+        }
+
+        function openEditModal(id) {
+            const link = allLinks.find(l => l.id === id);
+            if (!link) return;
+
+            document.getElementById('modalTitle').innerText = 'Edit Link';
+            document.getElementById('linkId').value = link.id;
+            document.getElementById('newTitle').value = link.title;
+            document.getElementById('newCategory').value = link.category;
+            document.getElementById('newUrl').value = link.url;
+            document.getElementById('newIcon').value = link.icon || '';
+            document.getElementById('modal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('modal').classList.add('hidden');
+        }
+
+        document.getElementById('linkForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('linkId').value;
+            const newLink = {
+                id: id,
+                title: document.getElementById('newTitle').value,
+                category: document.getElementById('newCategory').value,
+                url: document.getElementById('newUrl').value,
+                icon: document.getElementById('newIcon').value
+            };
+
+            try {
+                let res;
+                if (id) {
+                    res = await fetch('/api/links/update', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(newLink)
+                    });
+                } else {
+                    res = await fetch('/api/links', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(newLink)
+                    });
+                }
+
+                if (!res.ok) throw new Error(res.statusText);
+                
+                closeModal();
+                fetchLinks();
+            } catch (error) {
+                alert('Error saving link: ' + error.message);
+            }
+        });
+
+        async function deleteLink(id, event) {
+            event.preventDefault();
+            if(!confirm('Delete this link?')) return;
+            
+            try {
+                const res = await fetch(`/api/links/delete?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+                if (!res.ok) throw new Error('Failed to delete link');
+                fetchLinks();
+            } catch (error) {
+                alert('Error deleting link: ' + error.message);
+            }
+        }
+
+        fetchLinks();
+    </script>
+</body>
+</html>

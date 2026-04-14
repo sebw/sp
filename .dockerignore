@@ -1,0 +1,5 @@
+.git
+*.log
+icon_cache/*
+.vscode
+.idea
