@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/gorilla/mux"
 )
@@ -260,17 +261,20 @@ func updateLink(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Cache the icon if provided
+	// if the icon has already been cached it starts with /icons/ and no attempt at recaching should be done otherwise it fails.
 	if updatedLink.Icon != "" {
-		cachedIcon, err := downloadAndCacheIcon(updatedLink.Icon)
-		if err != nil {
-			log.Printf("Warning: Could not cache icon for %s: %v", updatedLink.Title, err)
-			// Keep old icon if caching fails? Or clear it? Let's keep old if provided, else clear.
-			// For now, if caching fails, we just don't update the icon field in the struct yet.
-			// But we need to know the OLD icon to preserve it if the new one fails.
-			// Simpler: If caching fails, we just don't set the new icon.
-			updatedLink.Icon = "" 
-		} else {
-			updatedLink.Icon = cachedIcon
+		if strings.HasPrefix(updatedLink.Icon, "http") {
+			cachedIcon, err := downloadAndCacheIcon(updatedLink.Icon)
+			if err != nil {
+				log.Printf("Warning: Could not cache icon for %s: %v", updatedLink.Title, err)
+				// Keep old icon if caching fails? Or clear it? Let's keep old if provided, else clear.
+				// For now, if caching fails, we just don't update the icon field in the struct yet.
+				// But we need to know the OLD icon to preserve it if the new one fails.
+				// Simpler: If caching fails, we just don't set the new icon.
+				updatedLink.Icon = "" 
+			} else {
+				updatedLink.Icon = cachedIcon
+			}
 		}
 	}
 
