@@ -10,5 +10,13 @@ docker run -d --name sp --restart always -p 8194:8080 \
 	ghcr.io/sebw/sp:20260414
 ```
 
+Place your `links.csv` in your data folder.
+
+The format of the CSV is this:
+
+```
+Category;Title;URL;icon_path
+```
+
 The `icon_cache` folder is served as `/icons/` internally.  
 You can store images in that folder and add `/icons/path_to_your_image.png` as icon.
