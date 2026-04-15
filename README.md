@@ -2,6 +2,14 @@
 
 A very simple start page written in go with fuzzy search provided by `fuse.js`.
 
+## Demo Instance
+
+[https://start.labo.ovh/](https://start.labo.ovh/)
+
+Resets every 20 minutes.
+
+## Running
+
 ```
 docker run -d --name sp --restart always -p 8194:8080 \
 	--network=start \
@@ -9,6 +17,8 @@ docker run -d --name sp --restart always -p 8194:8080 \
 	-v ./sp/icon_cache:/app/icon_cache \
 	ghcr.io/sebw/sp:latest
 ```
+
+## Database
 
 There's no database. Your links are stored in a CSV file.
 
@@ -19,6 +29,8 @@ The format of the CSV is this:
 ```
 Category;Title;URL;optional_icon_path
 ```
+
+## Icons
 
 The `icon_cache` folder is served as `/icons/` internally.
 
